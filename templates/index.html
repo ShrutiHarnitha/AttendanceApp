@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Home Page{% endblock %}
+
+{% block content %}
+<style>
+    .card-custom {
+        width: 400px;
+        margin: auto;
+    }
+</style>
+
+<div class="container mt-5 d-flex justify-content-center">
+    <div class="card card-custom text-center">
+        <div class="card-body">
+            <h5 class="card-title">Please choose an option</h5>
+            <br>
+            <a href="{{ url_for('register') }}" class="btn btn-primary">Register New User</a>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+            <a href="{{ url_for('attendance') }}" class="btn btn-primary">Take Attendance</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

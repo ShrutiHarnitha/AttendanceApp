@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Take Photos{% endblock %}
+
+{% block content %}
+<style>
+    .card-custom {
+        width: 800px;
+        margin: auto;
+    }
+</style>
+
+<div class="container mt-5 d-flex justify-content-center">
+    <div class="card card-custom text-center">
+        <div class="card-body">
+            <h5 class="card-title">Taking Attendance...</h5>
+            <br>
+            <p>Ensure your face is clearly visible to the camera.</p>
+            <div>
+                <video id="video" width="640" height="480" autoplay></video>
+                <canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
+            </div>
+            <br>
+            <div class="form-group row">
+                <div class="col-sm-12 text-center">
+                    <input type="hidden" name="photos" id="photos">
+                </div>
+            </div>
+            <br>
+            <div class="form-group row">
+                <div class="col-12 text-center">
+                    <button type="button" class="btn btn-primary" id="takePhoto">Take Photo</button>
+                    <button type="button" class="btn btn-secondary" onclick="window.history.back()">Back</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Custom Alert Modal -->
+<div class="modal fade" id="alertModal" tabindex="-1" role="dialog" aria-labelledby="alertModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="alertModalLabel">Alert</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="alertModalBody">
+                <!-- Alert message will be inserted here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const takePhotoButton = document.getElementById('takePhoto');
+    let count = 0;
+    const maxPhotos = 1;
+    const images = [];
+    let videoStream = null;
+
+    function startVideo() {
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+                videoStream = stream;
+                console.log('Video stream started');
+            })
+            .catch(err => {
+                console.error('Error accessing webcam: ', err);
+                alert("Error accessing webcam. Please check your camera and try again.");
+            });
+    }
+
+    function stopVideo() {
+        if (videoStream) {
+            let tracks = videoStream.getTracks();
+            tracks.forEach(track => track.stop());
+            videoStream = null;
+            console.log('Video stream stopped');
+        }
+    }
+
+    function capturePhoto() {
+        const context = canvas.getContext('2d');
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const photoData = canvas.toDataURL('image/jpeg');
+        console.log('Captured photo:', photoData);
+        return photoData;
+    }
+
+    function sendPhotos() {
+        console.log('Sending photos to server...');
+        fetch("/take_photo", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ images: images })
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Response from server:', data);
+            if (data.success) {
+                stopVideo();  // Stop the video stream
+
+                // Start Face Prediction
+                fetch("/face_prediction", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ image_path: data.image_path }) // Send the image path to the backend
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showAlert(`Predicted Label: ${data.predicted_label}`, "Attendance Successful");
+                        setTimeout(() => {
+                            window.location.href = "/";
+                        }, 5500); 
+                    } else {
+                        showAlert('Face Prediction failed. Please try again.');
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+            } else {
+                showAlert("Failed to capture photo. Please try again.");
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert("An error occurred while capturing photo. Please try again.");
+        });
+    }
+
+    function showAlert(message, title = "Alert") {
+        document.getElementById('alertModalBody').innerText = message;
+        document.getElementById('alertModalLabel').innerText = title;
+        $('#alertModal').modal('show');
+    }
+
+    takePhotoButton.addEventListener('click', () => {
+        takePhotoButton.disabled = true;
+        takePhotoButton.classList.add('btn-secondary');
+        takePhotoButton.classList.remove('btn-primary');
+
+        const interval = setInterval(() => {
+            if (count >= maxPhotos) {
+                clearInterval(interval);
+                sendPhotos();
+                return;
+            }
+            const photo = capturePhoto();
+            console.log('Captured photo', count + 1);
+            images.push(photo);
+            count++;
+        }, 1000); // Capture a photo every second
+    });
+
+    console.log('Starting video...');
+    startVideo();
+</script>
+{% endblock %}

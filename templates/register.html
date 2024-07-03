@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Registration Page{% endblock %}
+
+{% block content %}
+<style>
+    .card-custom {
+        width: 600px;
+        margin: auto;
+    }
+</style>
+
+<div class="container mt-5 d-flex justify-content-center">
+    <div class="card card-custom">
+        <div class="card-body">
+            <form id="registrationForm" method="POST" onsubmit="return validateAndSubmitForm(event)">
+                <div class="form-group row">
+                    <label for="inputName" class="col-sm-4 col-form-label">Student Name</label>
+                    <div class="col-sm-8">
+                        <input type="text" class="form-control" id="inputName" name="name" placeholder="Enter Full Name" oninput="validateForm()">
+                    </div>
+                </div>
+                <div class="form-group row">
+                    <label for="inputID" class="col-sm-4 col-form-label">Student ID Number</label>
+                    <div class="col-sm-8">
+                        <input type="text" class="form-control" id="inputID" name="student_id" placeholder="Enter Student ID Number" oninput="validateForm()">
+                    </div>
+                </div>
+                <div class="form-group row">
+                    <div class="col-sm-12 text-center">
+                        <video id="webcam" autoplay style="display:none;"></video>
+                        <canvas id="canvas" style="display:none;"></canvas>
+                        <input type="hidden" name="photos" id="photos">
+                    </div>
+                </div>
+                <br>
+                <div class="form-group row">
+                    <div class="col-12 text-center">
+                        <button type="button" class="btn btn-secondary" onclick="location.href='/'">Back</button> &nbsp;&nbsp;&nbsp;&nbsp;
+                        <button type="submit" class="btn btn-primary" id="registerButton" disabled>Register</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Custom Alert Modal -->
+<div class="modal fade" id="alertModal" tabindex="-1" role="dialog" aria-labelledby="alertModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="alertModalLabel">Alert</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="alertModalBody">
+                <!-- Alert message will be inserted here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function validateForm() {
+        var inputName = document.getElementById('inputName').value.trim();
+        var inputID = document.getElementById('inputID').value.trim();
+        var registerButton = document.getElementById('registerButton');
+
+        if (inputName !== '' && inputID !== '') {
+            registerButton.disabled = false;
+        } else {
+            registerButton.disabled = true;
+        }
+    }
+
+    function showAlert(message) {
+        document.getElementById('alertModalBody').innerText = message;
+        $('#alertModal').modal('show');
+    }
+
+    function validateAndSubmitForm(event) {
+        event.preventDefault(); // Prevent form submission
+
+        var inputName = document.getElementById('inputName').value.trim();
+        var inputID = document.getElementById('inputID').value.trim();
+
+        if (inputName === '' || inputID === '') {
+            showAlert("Both fields are required.");
+            return false; // Prevent form submission
+        }
+
+        fetch(`/check_student_id?student_id=${inputID}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.directory_exists) {
+                showAlert('Student is already registered in the database.');
+            } else {
+                var formData = new FormData(document.getElementById('registrationForm'));
+
+                fetch('/register', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.href = `/capture?student_id=${data.student_id}`;
+                    } else {
+                        showAlert('Registration failed. Please try again.');
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+            }
+        })
+        .catch(error => console.error('Error:', error));
+
+        return false; // Prevent form default submission
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        validateForm(); // Initial validation in case fields are pre-filled
+    });
+</script>
+{% endblock %}
